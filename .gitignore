@@ -1,4 +1,6 @@
 # Python
+recipes_data.csv
+recipes_preprocessed_ner.csv
 __pycache__/
 *.pyc
 *.pyo
