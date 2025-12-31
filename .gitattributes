@@ -1,3 +1,5 @@
+faiss_recipe_index/index.faiss filter=lfs diff=lfs merge=lfs -text
+faiss_recipe_index/index.pkl filter=lfs diff=lfs merge=lfs -text
 *.csv filter=lfs diff=lfs merge=lfs -text
 faiss_recipe_index/*.faiss filter=lfs diff=lfs merge=lfs -text
 faiss_recipe_index/*.pkl filter=lfs diff=lfs merge=lfs -text
