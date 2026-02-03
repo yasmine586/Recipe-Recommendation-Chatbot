@@ -1,5 +1,7 @@
 # Recipe-Recommendation-Chatbot
 A Hybrid RAG-based Recipe Chatbot using Llama 3.3 and FAISS. Combines semantic search with deterministic constraint filtering for safe, allergy-aware recipe recommendations.
+<img width="745" height="391" alt="image" src="https://github.com/user-attachments/assets/2f72e865-1f4b-4a73-90fb-7e399557cd71" />
+
 ##  Prerequisites
 
 - Python ≥ 3.10  
