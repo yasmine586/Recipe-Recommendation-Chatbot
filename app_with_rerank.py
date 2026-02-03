@@ -10,10 +10,11 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+from sentence_transformers import CrossEncoder
 
 load_dotenv()
 NUM_RECIPES_TO_SHOW = 3
-st.set_page_config(page_title="CookBot", layout="wide")
+st.set_page_config(page_title="Chef AI", layout="wide")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -41,9 +42,11 @@ def load_heavy_resources():
         api_key=GROQ_API_KEY
     )
     
-    return vector_store, llm
+    cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+    
+    return vector_store, llm, cross_encoder
 
-vector_store, llm = load_heavy_resources()
+vector_store, llm, cross_encoder = load_heavy_resources()
 
 def extract_constraints_with_llm(query: str, llm) -> dict:
     extraction_prompt = ChatPromptTemplate.from_messages([
@@ -69,7 +72,6 @@ RULES:
 - For dietary terms like "vegan", add to preferences only (do not auto-add forbidden ingredients)
 - For exclusions like "without chocolate", add "chocolate" to forbidden_ingredients
 - If nothing matches a field, use empty array []
-- If the query refers to previous recipes (e.g., contains "these", "them", "the ones", "add to", "in those"), or is a modification/question about existing results, set "is_recipe_query": false even if it mentions food.
 - Return ONLY clean JSON, no markdown, no explanation, no extra text"""),
         ("human", "{query}")
     ])
@@ -110,7 +112,7 @@ def filter_by_constraints(docs: list, constraints: dict) -> list:
     forbidden = constraints['forbidden'].copy()
     preferences = constraints['preferences']
     
-    
+    # Expand Dietary Preferences into specific forbidden ingredients
     if 'vegan' in preferences:
         forbidden.update({'egg', 'milk', 'dairy', 'cheese', 'butter', 'honey', 'meat', 'chicken', 'fish', 'seafood'})
     if 'vegetarian' in preferences:
@@ -119,7 +121,7 @@ def filter_by_constraints(docs: list, constraints: dict) -> list:
         forbidden.update({'wheat', 'flour', 'bread', 'pasta', 'barley'})
 
     filtered = []
-    
+    required = constraints['required']
 
     for doc in docs:
         ingredients = ast.literal_eval(doc.metadata.get('ingredients', '[]'))
@@ -136,14 +138,32 @@ def filter_by_constraints(docs: list, constraints: dict) -> list:
                 break
         if has_forbidden: continue
 
-        
+        # No strict filter on required - allow partial matches for LLM to handle suggestions
         filtered.append(doc)
 
     return filtered
 
+def rerank_with_cross_encoder(filtered_docs, query, cross_encoder, top_n=NUM_RECIPES_TO_SHOW):
+    if not filtered_docs:
+        return []
+    
+    # Take top candidates based on initial FAISS ranking (filtered_docs are already sorted)
+    top_candidates = filtered_docs[:20]
+    
+    pairs = []
+    for doc in top_candidates:
+        candidate_text = f"Title: {doc.metadata['title']}, Ingredients: {doc.metadata['ingredients']}"
+        pairs.append([query, candidate_text])
+    
+    scores = cross_encoder.predict(pairs)
+    
+    ranked = sorted(zip(top_candidates, scores), key=lambda x: x[1], reverse=True)
+    
+    return [doc for doc, score in ranked[:top_n]]
+
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Tell me what you want to eat, and I'll find the perfect recipe!"}
+        {"role": "assistant", "content": "👨‍🍳 Hello! I'm Chef AI. Tell me what you want to eat, and I'll find the perfect recipe!"}
     ]
 
 if "memory" not in st.session_state:
@@ -156,7 +176,7 @@ if "memory" not in st.session_state:
 if "last_context" not in st.session_state:
     st.session_state.last_context = ""
 
-st.title("🍳 CookBot - Recipe Assistant")
+st.title("🍳 Chef AI - Recipe Assistant")
 st.caption("Just tell me what you're craving – I'll find the best matching recipes!")
 
 with st.sidebar:
@@ -180,7 +200,7 @@ def generate_response(query):
             augmented_query = f"{query} {' '.join(constraints['preferences'])}"
             candidate_docs = retrieve_candidates(augmented_query)
             filtered_docs = filter_by_constraints(candidate_docs, constraints)
-            final_results = filtered_docs[:NUM_RECIPES_TO_SHOW]
+            final_results = rerank_with_cross_encoder(filtered_docs, query, cross_encoder)
             
             
             if final_results:
@@ -198,7 +218,7 @@ def generate_response(query):
     
     else:
         if st.session_state.last_context:
-            context_text = f"THESE ARE THE RECIPES THE USER IS ASKING ABOUT (Answer based ONLY on these):\n{st.session_state.last_context}"
+            context_text = f"PREVIOUS RECIPES CONTEXT:\n{st.session_state.last_context}"
         else:
             context_text = "No recipes loaded yet."
 

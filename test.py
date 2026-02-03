@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 NUM_RECIPES_TO_SHOW = 3
-st.set_page_config(page_title="CookBot", layout="wide")
+st.set_page_config(page_title="Chef AI", layout="wide")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -69,7 +69,6 @@ RULES:
 - For dietary terms like "vegan", add to preferences only (do not auto-add forbidden ingredients)
 - For exclusions like "without chocolate", add "chocolate" to forbidden_ingredients
 - If nothing matches a field, use empty array []
-- If the query refers to previous recipes (e.g., contains "these", "them", "the ones", "add to", "in those"), or is a modification/question about existing results, set "is_recipe_query": false even if it mentions food.
 - Return ONLY clean JSON, no markdown, no explanation, no extra text"""),
         ("human", "{query}")
     ])
@@ -110,7 +109,7 @@ def filter_by_constraints(docs: list, constraints: dict) -> list:
     forbidden = constraints['forbidden'].copy()
     preferences = constraints['preferences']
     
-    
+    # Expand Dietary Preferences into specific forbidden ingredients
     if 'vegan' in preferences:
         forbidden.update({'egg', 'milk', 'dairy', 'cheese', 'butter', 'honey', 'meat', 'chicken', 'fish', 'seafood'})
     if 'vegetarian' in preferences:
@@ -136,14 +135,14 @@ def filter_by_constraints(docs: list, constraints: dict) -> list:
                 break
         if has_forbidden: continue
 
-        
+        # No strict filter on required - allow partial matches for LLM to handle suggestions
         filtered.append(doc)
 
     return filtered
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Tell me what you want to eat, and I'll find the perfect recipe!"}
+        {"role": "assistant", "content": "👨‍🍳 Hello! I'm Chef AI. Tell me what you want to eat, and I'll find the perfect recipe!"}
     ]
 
 if "memory" not in st.session_state:
@@ -156,7 +155,7 @@ if "memory" not in st.session_state:
 if "last_context" not in st.session_state:
     st.session_state.last_context = ""
 
-st.title("🍳 CookBot - Recipe Assistant")
+st.title("🍳 Chef AI - Recipe Assistant")
 st.caption("Just tell me what you're craving – I'll find the best matching recipes!")
 
 with st.sidebar:
@@ -198,7 +197,7 @@ def generate_response(query):
     
     else:
         if st.session_state.last_context:
-            context_text = f"THESE ARE THE RECIPES THE USER IS ASKING ABOUT (Answer based ONLY on these):\n{st.session_state.last_context}"
+            context_text = f"PREVIOUS RECIPES CONTEXT:\n{st.session_state.last_context}"
         else:
             context_text = "No recipes loaded yet."
 
