@@ -1,0 +1,10 @@
+pandas
+spacy
+sentence-transformers
+langchain-huggingface
+langchain
+langchain-community
+faiss-cpu
+scikit-learn
+streamlit
+python-dotenv
