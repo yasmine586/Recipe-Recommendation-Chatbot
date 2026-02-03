@@ -1,11 +1,14 @@
 # Python
-recipes_data.csv
-recipes_preprocessed_ner.csv
+*.csv
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.sqlite3
+test.py
+app_plus_simple.py
+app_with_rerank.py
+code.ipynb
 
 # Environnement virtuel
 .venv/
